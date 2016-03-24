@@ -20,7 +20,7 @@ Create `ZMQ.Socket`:
 import org.zeromq.ZMQ
 val context = ZMQ.context(1)
 val socket = context.socket(ZMQ.PULL)
-socket.setReceiveTimeOut(1000) // this should be > 0
+socket.setReceiveTimeOut(1000) // this should be >= 0
 ```
 
 Create `Source` from `Socket`:
