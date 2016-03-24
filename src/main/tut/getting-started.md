@@ -2,7 +2,7 @@
 
 Let's create a simple processing graph and run it:
 
-```tut
+```tut:book
 import org.zeromq._
 import ru.dgis.reactivezmq._
 import akka._
