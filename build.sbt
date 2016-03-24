@@ -16,3 +16,10 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
   "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
 )
+
+releaseVersionBump := sbtrelease.Version.Bump.Minor
+
+bintrayReleaseOnPublish in ThisBuild := false
+
+licenses += "MPL-2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")
+
