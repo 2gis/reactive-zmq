@@ -1,6 +1,9 @@
 # Reactive ZMQ
 
-This is [akka-stream](http://doc.akka.io/docs/akka/current/scala/stream/index.html) API for [zmq](http://zeromq.org). Currently it only supports reading data from a zmq socket.
+This is [akka-stream](http://doc.akka.io/docs/akka/current/scala/stream/index.html) API for [zmq](http://zeromq.org).
+Currently it only supports receiving data via unidirectional ZMQ sockets of types:
+  - ZMQ.PULL
+  - ZMQ.SUB
 
 [![Build Status](https://travis-ci.org/2gis/reactive-zmq.svg?branch=master)](https://travis-ci.org/2gis/reactive-zmq)
 [![Download](https://api.bintray.com/packages/2gis/maven/reactive-zmq/images/download.svg)](https://bintray.com/2gis/maven/reactive-zmq/_latestVersion)
