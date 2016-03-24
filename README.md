@@ -2,7 +2,7 @@
 
 This is [akka-stream](http://doc.akka.io/docs/akka/current/scala/stream/index.html) API for [zmq](http://zeromq.org)
 
-![build status](https://api.travis-ci.com/2gis/reactive-zmq.svg?token=9x6XdQxD6LsyqgiNyJhx&branch=master)
+[![Build Status](https://travis-ci.org/2gis/reactive-zmq.svg?branch=master)](https://travis-ci.org/2gis/reactive-zmq)
 [![Download](https://api.bintray.com/packages/2gis/maven/reactive-zmq/images/download.svg)](https://bintray.com/2gis/maven/reactive-zmq/_latestVersion)
 
 # 30 seconds start
