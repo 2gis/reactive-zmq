@@ -7,10 +7,12 @@ This is [akka-stream](http://doc.akka.io/docs/akka/current/scala/stream/index.ht
 
 # 30 seconds start
 
-Add dependency to sbt:
+Add dependency to build.sbt:
 
 ```scala
-"ru.dgis" %% "reactive-zmq" % "0.1.0"
+resolvers += Resolver.bintrayRepo("2gis", "maven")
+
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.1.0"
 ```
 
 Create `ZMQ.Socket`:
