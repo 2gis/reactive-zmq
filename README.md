@@ -57,5 +57,10 @@ The `control` exposes `gracefulStop` method which gracefully closes underlying s
 
 ```scala
 control.gracefulStop()
-finish.onComplete(_ => as.terminate())
+
+implicit val ec = as.dispatcher
+finish.onComplete { _ =>
+  as.terminate()
+  context.close()
+}
 ```

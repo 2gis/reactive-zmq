@@ -27,6 +27,10 @@ class Examples {
     .toMat(Sink.ignore)(Keep.both)
     .run()
 
+  implicit val ec = as.dispatcher
   control.gracefulStop()
-  finish.onComplete(_ => as.terminate())
+  finish.onComplete { _ =>
+    as.terminate()
+    context.close()
+  }
 }
