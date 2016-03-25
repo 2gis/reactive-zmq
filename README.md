@@ -19,10 +19,10 @@ See [jeromq](https://github.com/zeromq/jeromq/tree/v0.3.5) documentation.
 
 # 30 seconds start
 
-Add dependency to build.sbt:
+Add the following settings to your `build.sbt`:
 
 ```scala
-resolvers += Resolver.bintrayRepo("2gis", "maven")
+resolvers += Resolver.jcenterRepo
 
 libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.1.0"
 ```
