@@ -39,7 +39,7 @@ socket.setReceiveTimeOut(1000) // this should be >= 0
 Create `Source` from `Socket`:
 
 ```scala
-val source = ZMQSource(socket, List("127.0.0.1:12345"))
+val source = ZMQSource(socket, List("tcp://127.0.0.1:12345"))
 ```
 
 Now you may use `source` in your graphs:
