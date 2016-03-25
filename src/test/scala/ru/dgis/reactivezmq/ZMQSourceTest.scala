@@ -20,10 +20,6 @@ import org.scalacheck.Gen
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
-/**
-  * @author Stanislav Savulchik
-  * @since 14.03.16
-  */
 class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with MockitoSugar with Matchers with Inspectors {
   implicit val mat = ActorMaterializer()
 
