@@ -37,6 +37,7 @@ object ZMQSource {
 
 private[reactivezmq] trait ZMQSocket extends Closeable {
   def getReceiveTimeOut: Int
+  def getType: Int
   def connect(address: String): Unit
   def close(): Unit
   def recv: Array[Byte]
@@ -46,6 +47,7 @@ private[reactivezmq] trait ZMQSocket extends Closeable {
 private object ZMQSocket {
   def apply(socket: ZMQ.Socket) = new ZMQSocket {
     def getReceiveTimeOut = socket.getReceiveTimeOut
+    def getType = socket.getType
     def recv = socket.recv()
     def disconnect(address: String) = socket.disconnect(address)
     def close() = socket.close()
@@ -66,6 +68,7 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
   import akka.stream.actor.ActorPublisherMessage._
 
   require(socket.getReceiveTimeOut >= 0, "ZMQ socket receive timeout must be non-negative")
+  require(socket.getType == ZMQ.PULL || socket.getType == ZMQ.SUB, "ZMQ socket type must be ZMQ.PULL or ZMQ.SUB")
 
   override def preStart() = addresses foreach socket.connect
   override def postStop() = socket.close()
