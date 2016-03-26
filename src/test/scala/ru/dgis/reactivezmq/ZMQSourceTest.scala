@@ -56,7 +56,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
       def connected = !connectedTo.isEmpty
     }
 
-    val source = ZMQSource.create(socket, addresses = List("foo", "bar"))
+    val source = ZMQSource.create(() => socket, addresses = List("foo", "bar"))
   }
 
   def elements = Stream.continually(genBytes.sample.get)
@@ -66,7 +66,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PULL)
     val addresses = List("foo", "bar", "baz")
-    ZMQSource.create(socket, addresses)
+    ZMQSource.create(() => socket, addresses)
       .runWith(TestSink.probe[ByteString])
       .expectSubscription()
     forAll(addresses) { verify(socket).connect(_) }
