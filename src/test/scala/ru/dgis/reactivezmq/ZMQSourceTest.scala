@@ -16,6 +16,7 @@ import org.scalatest.{FlatSpecLike, Inspectors, Matchers}
 import org.scalatest.mock.MockitoSugar
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Gen
+import org.zeromq.ZMQ
 
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
@@ -32,6 +33,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
   def fixture = new {
     val socket = new ZMQSocket {
       val getReceiveTimeOut = 500
+      val getType = ZMQ.PULL
 
       private val queue = new LinkedTransferQueue[Array[Byte]]()
       def hasWaitingConsumer = queue.hasWaitingConsumer
@@ -65,6 +67,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
 
   "ZMQSource" should "connect to the provided addresses at start" in {
     val socket = mock[ZMQSocket]
+    Mockito.when(socket.getType).thenReturn(ZMQ.PULL)
     val addresses = List("foo", "bar", "baz")
     ZMQSource.create(socket, addresses)
       .runWith(TestSink.probe[ByteString])
