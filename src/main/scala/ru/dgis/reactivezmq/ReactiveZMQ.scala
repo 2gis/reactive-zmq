@@ -12,12 +12,14 @@ import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
 
-/**
-  * @author Stanislav Savulchik
-  * @since 14.03.16
-  */
 object ZMQSource {
+  /**
+    * The means to control the Source after materialization.
+    */
   trait Control {
+    /**
+      * Disconnect the underlying ZMQ socket, deliver the remaining data and finally close the socket.
+      */
     def gracefulStop(): Unit
   }
 
@@ -31,6 +33,22 @@ object ZMQSource {
       .withAttributes(ActorAttributes.dispatcher("zmq-source-dispatcher"))
       .named("zmqSource")
 
+  /**
+    * Creates a Source of bytes wrapping a ZMQ socket provided by the factory.
+    *
+    * The sockets from the factory:
+    *   - must have ZMQ.PULL or ZMQ.SUB type
+    *   - must have a non-negative receive timeout set
+    *
+    * The Source:
+    *   - emits when there is demand and the data available in the socket
+    *   - completes when graceful stop is initiated and the remaining data is delivered from the socket
+    *   - stops the delivery if downstream cancels the stream possibly loosing some data still remaining in the socket
+    *
+    * @param socketFactory a factory of ZMQ sockets
+    * @param addresses a list of ZMQ endpoints to connect to
+    * @return a Source of bytes
+    */
   def apply(socketFactory: => ZMQ.Socket, addresses: List[String]): Source[ByteString, Control] =
     create(ZMQSocket(socketFactory), addresses)
 }
