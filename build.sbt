@@ -25,3 +25,7 @@ bintrayOrganization := Some("2gis")
 
 licenses += "MPL-2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")
 
+tutSettings
+
+tutTargetDirectory := baseDirectory.value / "docs"
+
