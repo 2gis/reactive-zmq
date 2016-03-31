@@ -11,6 +11,7 @@ import akka.util.ByteString
 import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
+import scala.util.control.NonFatal
 
 object ZMQSource {
   /**
@@ -85,10 +86,23 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
   import ZMQActorPublisher._
   import akka.stream.actor.ActorPublisherMessage._
 
-  require(socket.getReceiveTimeOut >= 0, "ZMQ socket receive timeout must be non-negative")
-  require(socket.getType == ZMQ.PULL || socket.getType == ZMQ.SUB, "ZMQ socket type must be ZMQ.PULL or ZMQ.SUB")
+  try {
+    require(socket.getReceiveTimeOut >= 0, "ZMQ socket receive timeout must be non-negative")
+    require(socket.getType == ZMQ.PULL || socket.getType == ZMQ.SUB, "ZMQ socket type must be ZMQ.PULL or ZMQ.SUB")
+  } catch {
+    case NonFatal(e) =>
+      log.error(e, "ZMQ socket requirements weren't met")
+      onErrorThenStop(e)
+  }
 
-  override def preStart() = addresses foreach socket.connect
+  override def preStart() =
+    try addresses foreach socket.connect
+    catch {
+      case NonFatal(e) =>
+        log.error(e, s"Error during connection to ${addresses.mkString(", ")}")
+        onErrorThenStop(e)
+    }
+
   override def postStop() = socket.close()
 
   def receive = idle
