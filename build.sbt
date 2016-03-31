@@ -25,3 +25,12 @@ bintrayOrganization := Some("2gis")
 
 licenses += "MPL-2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")
 
+publishTo := {
+  if (isSnapshot.value)
+    Some("OSS JFrog" at "https://oss.jfrog.org/artifactory/oss-snapshot-local")
+  else publishTo.value
+}
+
+bintrayCredentialsFile := Path.userHome / ".sbt" / ".bintray"
+
+credentials += Credentials(Path.userHome / ".sbt" / ".jfrog")
