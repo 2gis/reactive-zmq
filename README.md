@@ -77,3 +77,13 @@ finish.onComplete { _ =>
   context.close()
 }
 ```
+
+# Bleeding edge
+
+Add the following settings to your `build.sbt` to use a SNAPSHOT version:
+
+```scala
+resolvers += "OSS JFrog Snapshots" at "https://oss.jfrog.org/artifactory/libs-snapshot/"
+
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.2.0-SNAPSHOT"
+```
