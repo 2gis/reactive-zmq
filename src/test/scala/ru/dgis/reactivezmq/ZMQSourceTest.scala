@@ -11,11 +11,12 @@ import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.util.ByteString
-import org.mockito.Mockito
-import org.scalatest.{FlatSpecLike, Inspectors, Matchers}
-import org.scalatest.mock.MockitoSugar
+import org.mockito.Matchers.any
+import org.mockito.Mockito.{verify, when}
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Gen
+import org.scalatest.mock.MockitoSugar
+import org.scalatest.{FlatSpecLike, Inspectors, Matchers}
 import org.zeromq.ZMQ
 
 import scala.concurrent.duration._
@@ -63,12 +64,41 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
 
   "ZMQSource" should "connect to the provided addresses at start" in {
     val socket = mock[ZMQSocket]
-    Mockito.when(socket.getType).thenReturn(ZMQ.PULL)
+    when(socket.getType).thenReturn(ZMQ.PULL)
     val addresses = List("foo", "bar", "baz")
     ZMQSource.create(socket, addresses)
       .runWith(TestSink.probe[ByteString])
       .expectSubscription()
-    forAll(addresses) { Mockito.verify(socket).connect(_) }
+    forAll(addresses) { verify(socket).connect(_) }
+  }
+
+  it should "terminate the stream due to unsupported ZMQ socket type and close the socket" in {
+    val socket = mock[ZMQSocket]
+    when(socket.getType).thenReturn(ZMQ.PUSH)
+    ZMQSource.create(socket, addresses = Nil)
+      .runWith(TestSink.probe)
+      .expectSubscriptionAndError()
+    awaitAssert { verify(socket).close() }
+  }
+
+  it should "terminate the stream due to infinite receive timeout on ZMQ socket and close the socket" in {
+    val socket = mock[ZMQSocket]
+    when(socket.getType).thenReturn(ZMQ.PULL)
+    when(socket.getReceiveTimeOut).thenReturn(-1)
+    ZMQSource.create(socket, addresses = Nil)
+      .runWith(TestSink.probe)
+      .expectSubscriptionAndError()
+    awaitAssert { verify(socket).close() }
+  }
+
+  it should "terminate the stream due to connection problems and close the socket" in {
+    val socket = mock[ZMQSocket]
+    when(socket.getType).thenReturn(ZMQ.PULL)
+    when(socket.connect(any())).thenThrow(classOf[Exception])
+    ZMQSource.create(socket, addresses = List("42"))
+      .runWith(TestSink.probe)
+      .expectSubscriptionAndError()
+    awaitAssert { verify(socket).close() }
   }
 
   "ZMQSource when idle" should "deliver the requested number of elements if immediately available in the socket" in {
