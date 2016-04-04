@@ -31,6 +31,8 @@ publishTo := {
   else publishTo.value
 }
 
-bintrayCredentialsFile := Path.userHome / ".sbt" / ".bintray"
-
-credentials += Credentials(Path.userHome / ".sbt" / ".jfrog")
+credentials += Credentials(
+  "Artifactory Realm",
+  "oss.jfrog.org",
+  Option(System.getenv("OSS_JFROG_USER")).getOrElse(""),
+  Option(System.getenv("OSS_JFROG_PASSWORD")).getOrElse(""))
