@@ -27,19 +27,12 @@ resolvers += Resolver.jcenterRepo
 libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.1.0"
 ```
 
-Create `ZMQ.Socket`:
+Create zmq context and `Source`:
 
 ```scala
 import org.zeromq.ZMQ
 val context = ZMQ.context(1)
-val socket = context.socket(ZMQ.PULL)
-socket.setReceiveTimeOut(1000) // this should be >= 0
-```
-
-Create `Source` from `Socket`:
-
-```scala
-val source = ZMQSource(socket, List("tcp://127.0.0.1:12345"))
+val source = ZMQSource(context, ZMQ.PULL, 1 second, List("tcp://127.0.0.1:12345"))
 ```
 
 Now you may use `source` in your graphs:

@@ -12,6 +12,7 @@ import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
+import scala.concurrent.duration.FiniteDuration
 
 object ZMQSource {
   /**
@@ -53,10 +54,28 @@ object ZMQSource {
   def apply(socketFactory: () => ZMQ.Socket, addresses: List[String]): Source[ByteString, Control] =
     create(() => ZMQSocket(socketFactory.apply()), addresses)
 
-  def apply(context: ZMQ.Context, mode: Int, timeout: Int, addresses: List[String]): Source[ByteString, Control] = {
+  /**
+    * Creates a ZMQ socket and wraps it with a Source
+    *
+    * The sockets from the factory:
+    *   -
+    *   - must have a non-negative receive timeout set
+    *
+    * The Source:
+    *   - emits when there is demand and the data available in the socket
+    *   - completes when graceful stop is initiated and the remaining data is delivered from the socket
+    *   - stops the delivery if downstream cancels the stream possibly loosing some data still remaining in the socket
+    *
+    * @param context context to create socket with
+    * @param mode socket type to be created. Must be ZMQ.PULL or ZMQ.SUB
+    * @param timeout context to create socket with
+    * @param addresses a list of ZMQ endpoints to connect to
+    * @return a Source of bytes
+    */
+  def apply(context: ZMQ.Context, mode: Int, timeout: FiniteDuration, addresses: List[String]): Source[ByteString, Control] = {
     apply(() => {
       val socket = context.socket(mode)
-      socket.setReceiveTimeOut(timeout)
+      socket.setReceiveTimeOut(timeout.toMillis.toInt)
       socket
     }, addresses)
   }
