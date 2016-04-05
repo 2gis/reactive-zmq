@@ -57,10 +57,6 @@ object ZMQSource {
   /**
     * Creates a ZMQ socket and wraps it with a Source
     *
-    * The sockets from the factory:
-    *   -
-    *   - must have a non-negative receive timeout set
-    *
     * The Source:
     *   - emits when there is demand and the data available in the socket
     *   - completes when graceful stop is initiated and the remaining data is delivered from the socket
@@ -68,7 +64,7 @@ object ZMQSource {
     *
     * @param context context to create socket with
     * @param mode socket type to be created. Must be ZMQ.PULL or ZMQ.SUB
-    * @param timeout context to create socket with
+    * @param timeout receive timeout for socket
     * @param addresses a list of ZMQ endpoints to connect to
     * @return a Source of bytes
     */

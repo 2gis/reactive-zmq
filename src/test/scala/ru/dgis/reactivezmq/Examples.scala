@@ -13,7 +13,11 @@ import scala.concurrent.duration.DurationInt
   */
 object Examples extends App {
   val context = ZMQ.context(1)
-  val source = ZMQSource(context, ZMQ.PULL, 1 second, List("tcp://127.0.0.1:12345"))
+  val source = ZMQSource(context,
+    mode = ZMQ.PULL,
+    timeout = 1 second,
+    addresses = List("tcp://127.0.0.1:12345")
+  )
 
   //or
   {
