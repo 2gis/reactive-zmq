@@ -12,6 +12,7 @@ import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
+import scala.concurrent.duration.FiniteDuration
 
 object ZMQSource {
   /**
@@ -24,7 +25,7 @@ object ZMQSource {
     def gracefulStop(): Unit
   }
 
-  private[reactivezmq] def create(socketFactory: => ZMQSocket, addresses: List[String]): Source[ByteString, Control] =
+  private[reactivezmq] def create(socketFactory: () => ZMQSocket, addresses: List[String]): Source[ByteString, Control] =
     Source.actorPublisher[ByteString](ZMQActorPublisher.props(socketFactory, addresses))
       .mapMaterializedValue { ref =>
         new Control {
@@ -50,8 +51,30 @@ object ZMQSource {
     * @param addresses a list of ZMQ endpoints to connect to
     * @return a Source of bytes
     */
-  def apply(socketFactory: => ZMQ.Socket, addresses: List[String]): Source[ByteString, Control] =
-    create(ZMQSocket(socketFactory), addresses)
+  def apply(socketFactory: () => ZMQ.Socket, addresses: List[String]): Source[ByteString, Control] =
+    create(() => ZMQSocket(socketFactory.apply()), addresses)
+
+  /**
+    * Creates a ZMQ socket and wraps it with a Source
+    *
+    * The Source:
+    *   - emits when there is demand and the data available in the socket
+    *   - completes when graceful stop is initiated and the remaining data is delivered from the socket
+    *   - stops the delivery if downstream cancels the stream possibly loosing some data still remaining in the socket
+    *
+    * @param context context to create socket with
+    * @param mode socket type to be created. Must be ZMQ.PULL or ZMQ.SUB
+    * @param timeout receive timeout for socket
+    * @param addresses a list of ZMQ endpoints to connect to
+    * @return a Source of bytes
+    */
+  def apply(context: ZMQ.Context, mode: Int, timeout: FiniteDuration, addresses: List[String]): Source[ByteString, Control] = {
+    apply(() => {
+      val socket = context.socket(mode)
+      socket.setReceiveTimeOut(timeout.toMillis.toInt)
+      socket
+    }, addresses)
+  }
 }
 
 private[reactivezmq] trait ZMQSocket extends Closeable {
@@ -78,8 +101,8 @@ private object ZMQActorPublisher {
   case object GracefulStop
   case object DeliverMore
 
-  def props(socketFactory: => ZMQSocket, addresses: List[String]): Props =
-    Props(new ZMQActorPublisher(socketFactory, addresses))
+  def props(socketFactory: () => ZMQSocket, addresses: List[String]): Props =
+    Props(new ZMQActorPublisher(socketFactory.apply(), addresses))
 }
 
 private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) extends ActorPublisher[ByteString] with ActorLogging {

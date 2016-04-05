@@ -56,7 +56,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
       def connected = !connectedTo.isEmpty
     }
 
-    val source = ZMQSource.create(socket, addresses = List("foo", "bar"))
+    val source = ZMQSource.create(() => socket, addresses = List("foo", "bar"))
   }
 
   def elements = Stream.continually(genBytes.sample.get)
@@ -66,7 +66,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PULL)
     val addresses = List("foo", "bar", "baz")
-    ZMQSource.create(socket, addresses)
+    ZMQSource.create(() => socket, addresses)
       .runWith(TestSink.probe[ByteString])
       .expectSubscription()
     forAll(addresses) { verify(socket).connect(_) }
@@ -75,7 +75,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
   it should "terminate the stream due to unsupported ZMQ socket type and close the socket" in {
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PUSH)
-    ZMQSource.create(socket, addresses = Nil)
+    ZMQSource.create(() => socket, addresses = Nil)
       .runWith(TestSink.probe)
       .expectSubscriptionAndError()
     awaitAssert { verify(socket).close() }
@@ -85,7 +85,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PULL)
     when(socket.getReceiveTimeOut).thenReturn(-1)
-    ZMQSource.create(socket, addresses = Nil)
+    ZMQSource.create(() => socket, addresses = Nil)
       .runWith(TestSink.probe)
       .expectSubscriptionAndError()
     awaitAssert { verify(socket).close() }
@@ -95,7 +95,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PULL)
     when(socket.connect(any())).thenThrow(classOf[Exception])
-    ZMQSource.create(socket, addresses = List("42"))
+    ZMQSource.create(() => socket, addresses = List("42"))
       .runWith(TestSink.probe)
       .expectSubscriptionAndError()
     awaitAssert { verify(socket).close() }
