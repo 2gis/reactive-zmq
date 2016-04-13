@@ -54,7 +54,7 @@ Full example is available [here](https://github.com/2gis/reactive-zmq/tree/maste
 
 # Stopping
 
-To stop the `Source` you should use a `Control` object that can be obtained via materilization:
+To stop the `Source` you should use the materialized `Control` object:
 
 ```scala
 val (control, finish) = source
@@ -63,7 +63,7 @@ val (control, finish) = source
   .run()
 ```
 
-The `control` exposes `gracefulStop` method which gracefully closes underlying socket and completes the `Source`:
+The `Control` object exposes a `gracefulStop` method that closes an underlying ZMQ socket and completes the `Source`:
 
 ```scala
 control.gracefulStop()
