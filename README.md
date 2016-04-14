@@ -24,7 +24,7 @@ Add the following settings to your `build.sbt`:
 ```scala
 resolvers += Resolver.jcenterRepo
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.1.0"
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.2.0"
 ```
 
 Create zmq context and `Source`:
