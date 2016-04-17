@@ -36,3 +36,7 @@ tmp/
 
 # ignore mac os x files
 .DS_Store
+
+# vim files
+*.swp
+
