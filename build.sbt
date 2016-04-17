@@ -2,7 +2,7 @@ name := "reactive-zmq"
 
 organization := "ru.dgis"
 
-val akkaVersion = "2.4.2"
+val akkaVersion = "2.4.4"
 
 scalaVersion := "2.11.8"
 
@@ -14,7 +14,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.6" % "test",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
-  "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
+  "org.scalacheck" %% "scalacheck" % "1.13.1" % "test"
 )
 
 releaseVersionBump := sbtrelease.Version.Bump.Minor
