@@ -1,0 +1,6 @@
+Initial release.
+
+Currently the library provides a `Source` for receiving data via unidirectional ZMQ sockets of types:
+
+* ZMQ.PULL
+* ZMQ.SUB
