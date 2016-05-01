@@ -7,6 +7,7 @@ Currently it only supports receiving data via unidirectional ZMQ sockets of type
 
 [![Build Status](https://travis-ci.org/2gis/reactive-zmq.svg?branch=master)](https://travis-ci.org/2gis/reactive-zmq)
 [![Download](https://api.bintray.com/packages/2gis/maven/reactive-zmq/images/download.svg)](https://bintray.com/2gis/maven/reactive-zmq/_latestVersion)
+[![Coverage Status](https://coveralls.io/repos/github/2gis/reactive-zmq/badge.svg?branch=master)](https://coveralls.io/github/2gis/reactive-zmq?branch=master)
 
 # Prerequisites
 
