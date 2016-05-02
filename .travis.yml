@@ -12,7 +12,7 @@ before_cache:
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
   - find $HOME/.sbt -name "*.lock" -delete
-script: "sbt clean coverage test"
 after_success:
-  - "sbt coverageReport coveralls"
   - "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt publish"
+  - "sbt coverage test coverageReport coveralls"
+
