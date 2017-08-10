@@ -2,16 +2,16 @@ name := "reactive-zmq"
 
 organization := "ru.dgis"
 
-val akkaVersion = "2.4.4"
+val akkaVersion = "2.5.3"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.11.11"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-  "org.zeromq" % "jeromq" % "0.3.5",
+  "org.zeromq" % "jeromq" % "0.4.2",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
-  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.1" % "test"
