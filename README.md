@@ -16,7 +16,7 @@ Currently it only supports receiving data via unidirectional ZMQ sockets of type
 
 # ZMQ compatibility
 
-See [jeromq](https://github.com/zeromq/jeromq/tree/v0.3.5) documentation.  
+See [jeromq](https://github.com/zeromq/jeromq/tree/v0.4.2) documentation.
 
 # 30 seconds start
 
