@@ -2,57 +2,24 @@ package ru.dgis.reactivezmq
 
 import java.io.Closeable
 
-import akka.actor.{ActorLogging, Props}
-import akka.event.LoggingReceive
-import akka.stream.ActorAttributes
-import akka.stream.actor.ActorPublisher
+import akka.NotUsed
+import akka.stream.{ActorAttributes, Attributes, Outlet, SourceShape}
 import akka.stream.scaladsl.Source
+import akka.stream.stage._
 import akka.util.ByteString
 import org.zeromq.ZMQ
+import org.zeromq.ZMQ.Poller
 
-import scala.annotation.tailrec
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success, Try}
 
 object ZMQSource {
-  /**
-    * The means to control the Source after materialization.
-    */
-  trait Control {
-    /**
-      * Disconnect the underlying ZMQ socket, deliver the remaining data and finally close the socket.
-      */
-    def gracefulStop(): Unit
-  }
 
-  private[reactivezmq] def create(socketFactory: () => ZMQSocket, addresses: List[String]): Source[ByteString, Control] =
-    Source.actorPublisher[ByteString](ZMQActorPublisher.props(socketFactory, addresses))
-      .mapMaterializedValue { ref =>
-        new Control {
-          def gracefulStop() = ref ! ZMQActorPublisher.GracefulStop
-        }
-      }
+  private[reactivezmq] def create(socketFactory: () => ZMQSocket, addresses: List[String]): Source[ByteString, NotUsed] =
+    Source.fromGraph[ByteString, NotUsed](new ZMQSourceStage(socketFactory, addresses))
       .withAttributes(ActorAttributes.dispatcher("zmq-source-dispatcher"))
       .named("zmqSource")
-
-  /**
-    * Creates a Source of bytes wrapping a ZMQ socket provided by the factory.
-    *
-    * The sockets from the factory:
-    *   - must have ZMQ.PULL or ZMQ.SUB type
-    *   - must have a non-negative receive timeout set
-    *
-    * The Source:
-    *   - emits when there is demand and the data available in the socket
-    *   - completes when graceful stop is initiated and the remaining data is delivered from the socket
-    *   - stops the delivery if downstream cancels the stream possibly loosing some data still remaining in the socket
-    *
-    * @param socketFactory a factory of ZMQ sockets
-    * @param addresses a list of ZMQ endpoints to connect to
-    * @return a Source of bytes
-    */
-  def apply(socketFactory: () => ZMQ.Socket, addresses: List[String]): Source[ByteString, Control] =
-    create(() => ZMQSocket(socketFactory.apply()), addresses)
 
   /**
     * Creates a ZMQ socket and wraps it with a Source
@@ -66,136 +33,92 @@ object ZMQSource {
     * @param mode socket type to be created. Must be ZMQ.PULL or ZMQ.SUB
     * @param timeout receive timeout for socket
     * @param addresses a list of ZMQ endpoints to connect to
+    * @param topics a list of topics when using ZMQ.SUB
     * @return a Source of bytes
     */
-  def apply(context: ZMQ.Context, mode: Int, timeout: FiniteDuration, addresses: List[String]): Source[ByteString, Control] = {
-    apply(() => {
-      val socket = context.socket(mode)
-      socket.setReceiveTimeOut(timeout.toMillis.toInt)
-      socket
-    }, addresses)
+  def apply(context: ZMQ.Context, mode: Int, timeout: FiniteDuration, addresses: List[String], topics: String*): Source[ByteString, NotUsed] = {
+    require(mode == ZMQ.PULL || topics.nonEmpty, "Must provide at least one topic when using ZMQ.SUB")
+    create(() => ZMQSocket(context, mode, timeout, topics:_*), addresses)
   }
 }
 
-private[reactivezmq] trait ZMQSocket extends Closeable {
+trait ZMQSocket extends Closeable {
   def getReceiveTimeOut: Int
   def getType: Int
   def connect(address: String): Unit
   def close(): Unit
-  def recv: Array[Byte]
+  def recvF(implicit ec: ExecutionContext): Future[Array[Byte]]
   def disconnect(address: String): Boolean
 }
 
 private object ZMQSocket {
-  def apply(socket: ZMQ.Socket) = new ZMQSocket {
-    def getReceiveTimeOut = socket.getReceiveTimeOut
-    def getType = socket.getType
-    def recv = socket.recv()
-    def disconnect(address: String) = socket.disconnect(address)
-    def close() = socket.close()
-    def connect(address: String) = socket.connect(address)
+  def apply(context: ZMQ.Context, mode: Int, timeout: FiniteDuration, topics: String*) = new ZMQSocket {
+    private val socket = {
+      val socket = context.socket(mode)
+      socket.setReceiveTimeOut(timeout.toMillis.toInt)
+      socket
+    }
+    private val poller = context.poller(1)
+    poller.register(socket, Poller.POLLIN)
+    def getReceiveTimeOut: Int = socket.getReceiveTimeOut
+    def getType: Int = socket.getType
+    def recvF(implicit ec: ExecutionContext) = Future{
+      poller.poll()
+      socket.recv()
+    }
+    def disconnect(address: String): Boolean = socket.disconnect(address)
+    def close(): Unit = socket.close()
+    def connect(address: String): Unit = {
+      socket.connect(address)
+      if(mode == ZMQ.SUB) topics.foreach(s => socket.subscribe(s.getBytes))
+    }
   }
 }
 
-private object ZMQActorPublisher {
-  case object GracefulStop
-  case object DeliverMore
-
-  def props(socketFactory: () => ZMQSocket, addresses: List[String]): Props =
-    Props(new ZMQActorPublisher(socketFactory.apply(), addresses))
+class ZMQSourceStage(socketFactory: () => ZMQSocket, addresses: List[String]) extends GraphStage[SourceShape[ByteString]]{
+  private val out: Outlet[ByteString] = Outlet("ZMQSource.out")
+  val shape: SourceShape[ByteString] = SourceShape(out)
+  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    new ZMQSourceStageLogic(socketFactory.apply(), addresses, shape, out)
 }
 
-private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) extends ActorPublisher[ByteString] with ActorLogging {
-  import ZMQActorPublisher._
-  import akka.stream.actor.ActorPublisherMessage._
+private class ZMQSourceStageLogic(socket: ZMQSocket, addresses: List[String], shape: SourceShape[ByteString], out: Outlet[ByteString]) extends GraphStageLogic(shape) with StageLogging{
+  private val successCallback: AsyncCallback[ByteString] =
+    getAsyncCallback(handleSuccess)
+  private val failureCallback: AsyncCallback[Throwable] =
+    getAsyncCallback(t => handleFailure(t, "Caught Exception. Failing stage..."))
+  private val failureWithMessageCallback: AsyncCallback[(Throwable, String)] =
+    getAsyncCallback(p => (handleFailure _).tupled(p))
 
-  try {
+  def handleSuccess(v: ByteString): Unit = push(out, v)
+  def handleFailure(t: Throwable, msg: String): Unit = {
+    log.error(t, msg)
+    failStage(t)
+  }
+
+  override def preStart(): Unit = Try{
     require(socket.getReceiveTimeOut >= 0, "ZMQ socket receive timeout must be non-negative")
     require(socket.getType == ZMQ.PULL || socket.getType == ZMQ.SUB, "ZMQ socket type must be ZMQ.PULL or ZMQ.SUB")
-  } catch {
-    case NonFatal(e) =>
-      log.error(e, "ZMQ socket requirements weren't met")
-      onErrorThenStop(e)
-  }
-
-  override def preStart() =
-    try addresses foreach socket.connect
-    catch {
-      case NonFatal(e) =>
-        log.error(e, s"Error during connection to ${addresses.mkString(", ")}")
-        onErrorThenStop(e)
-    }
-
-  override def postStop() = socket.close()
-
-  def receive = idle
-
-  def idle: Receive = LoggingReceive {
-    case Request(n) =>
-      if (deliver(n)) {
-        self ! DeliverMore
-        log.debug("idle ~> delivering")
-        context.become(delivering)
+  } match {
+    case Failure(t: Throwable) =>
+      failureWithMessageCallback.invoke(t -> "ZMQ socket requirements weren't met")
+    case Success(_) =>
+      Try(addresses foreach socket.connect) match {
+        case Failure(t) =>
+          failureCallback.invoke(t)
+        case Success(_) =>
+          ()
       }
-    case Cancel =>
-      disconnect()
-      context.stop(self)
-    case GracefulStop =>
-      disconnect()
-      log.debug("idle ~> stopping")
-      context.become(stopping)
   }
 
-  def delivering: Receive = LoggingReceive {
-    case Request(_) =>
-    case DeliverMore =>
-      if (deliver(totalDemand)) self ! DeliverMore
-      else {
-        log.debug("delivering ~> idle")
-        context.become(idle)
-      }
-    case Cancel =>
-      disconnect()
-      context.stop(self)
-    case GracefulStop =>
-      disconnect()
-      log.debug("delivering ~> delivering & stopping")
-      context.become(deliveringAndStopping)
-  }
-
-  def stopping: Receive = LoggingReceive {
-    case Request(n) => if (deliver(n)) onCompleteThenStop()
-    case Cancel => context.stop(self)
-    case GracefulStop =>
-  }
-
-  def deliveringAndStopping: Receive = LoggingReceive {
-    case Request(_) =>
-    case DeliverMore =>
-      if (deliver(totalDemand)) onCompleteThenStop()
-      else {
-        log.debug("delivering & stopping ~> stopping")
-        context.become(stopping)
-      }
-    case Cancel => context.stop(self)
-    case GracefulStop =>
-  }
-
-  /**
-    * @return need to deliver more
-    */
-  @tailrec
-  private def deliver(n: Long): Boolean = {
-    if (n == 0) false
-    else {
-      val data = Option(socket.recv).map(ByteString.apply)
-      data foreach onNext
-      if (data.nonEmpty) deliver(n - 1)
-      else true
-    }
-  }
-
-  def disconnect(): Unit = {
+  override def postStop(): Unit = {
     addresses foreach socket.disconnect
+    socket.close()
   }
+
+  setHandler(out, new OutHandler {
+    override def onPull(): Unit =
+      socket.recvF(materializer.executionContext)
+        .foreach(ba => successCallback.invoke(ByteString(ba)))(materializer.executionContext)
+  })
 }
