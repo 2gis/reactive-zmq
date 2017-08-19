@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.util.ByteString
-import org.mockito.Matchers.any
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.{verify, when}
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Gen
@@ -94,7 +94,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with 
   it should "terminate the stream due to connection problems and close the socket" in {
     val socket = mock[ZMQSocket]
     when(socket.getType).thenReturn(ZMQ.PULL)
-    when(socket.connect(any())).thenThrow(classOf[Exception])
+    when(socket.connect(anyString())).thenThrow(classOf[Exception])
     ZMQSource.create(() => socket, addresses = List("42"))
       .runWith(TestSink.probe)
       .expectSubscriptionAndError()
