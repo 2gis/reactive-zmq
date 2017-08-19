@@ -1,18 +1,22 @@
 language: scala
 jdk: oraclejdk8
-scala: 2.11.8
+scala:
+  - 2.11.11
+  - 2.12.3
 cache:
   directories:
     - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot
+    - $HOME/.sbt
 before_script:
   - mkdir -v $HOME/.bintray
   - cp -v ./.bintray $HOME/.bintray/.credentials
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION test
 before_cache:
   # Tricks to avoid unnecessary cache updates
-  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
-  - find $HOME/.sbt -name "*.lock" -delete
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -print -delete
+  - find $HOME/.sbt -name "*.lock" -print -delete
 after_success:
-  - "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt publish"
+  - "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt +publish"
   - "sbt coverage test coverageReport coveralls"
 
