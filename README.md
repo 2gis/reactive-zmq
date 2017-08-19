@@ -9,10 +9,10 @@ Currently it only supports receiving data via unidirectional ZMQ sockets of type
 [![Download](https://api.bintray.com/packages/2gis/maven/reactive-zmq/images/download.svg)](https://bintray.com/2gis/maven/reactive-zmq/_latestVersion)
 [![Coverage Status](https://coveralls.io/repos/github/2gis/reactive-zmq/badge.svg?branch=master)](https://coveralls.io/github/2gis/reactive-zmq?branch=master)
 
-# Prerequisites
+# Supported Scala versions
 
-  - Java 8
-  - Scala 2.11.8+
+  - Scala 2.11.11+
+  - Scala 2.12.3+
 
 # ZMQ compatibility
 
@@ -25,7 +25,7 @@ Add the following settings to your `build.sbt`:
 ```scala
 resolvers += Resolver.jcenterRepo
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.2.0"
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.3.0"
 ```
 
 Create zmq context and `Source`:
@@ -83,5 +83,5 @@ Add the following settings to your `build.sbt` to use a SNAPSHOT version:
 ```scala
 resolvers += "OSS JFrog Snapshots" at "https://oss.jfrog.org/artifactory/libs-snapshot/"
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.3.0-SNAPSHOT"
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.4.0-SNAPSHOT"
 ```
