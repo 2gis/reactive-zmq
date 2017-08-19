@@ -23,6 +23,8 @@ libraryDependencies ++= Seq(
 
 releaseVersionBump := sbtrelease.Version.Bump.Minor
 
+releaseCrossBuild := true
+
 bintrayReleaseOnPublish in ThisBuild := false
 
 bintrayOrganization := Some("2gis")
