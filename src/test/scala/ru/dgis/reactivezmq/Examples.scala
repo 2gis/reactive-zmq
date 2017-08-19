@@ -15,7 +15,7 @@ object Examples extends App {
   val context = ZMQ.context(1)
   val source = ZMQSource(context,
     mode = ZMQ.PULL,
-    timeout = 1 second,
+    timeout = 1.second,
     addresses = List("tcp://127.0.0.1:12345")
   )
 
@@ -23,7 +23,7 @@ object Examples extends App {
   {
     val socket = context.socket(ZMQ.PULL)
     socket.setReceiveTimeOut(1000)
-    val source = ZMQSource(() => socket, List("tcp://127.0.0.1:12345"))
+    ZMQSource(() => socket, List("tcp://127.0.0.1:12345"))
   }
 
   implicit val as = ActorSystem()

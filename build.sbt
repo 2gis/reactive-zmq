@@ -8,6 +8,8 @@ scalaVersion := "2.12.3"
 
 crossScalaVersions := Seq("2.11.11", "2.12.3")
 
+scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint")
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor"          % akkaVersion,
   "com.typesafe.akka" %% "akka-stream"         % akkaVersion,
