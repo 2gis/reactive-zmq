@@ -15,7 +15,7 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.{verify, when}
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Gen
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpecLike, Inspectors, Matchers}
 import org.zeromq.ZMQ
 
