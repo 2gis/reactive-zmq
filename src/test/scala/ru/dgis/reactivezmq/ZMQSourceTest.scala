@@ -1,13 +1,12 @@
 package ru.dgis.reactivezmq
 
-import java.util
-import java.util.Collections
 import java.util.concurrent.LinkedTransferQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Keep
+import akka.stream.{ActorMaterializer, KillSwitches}
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import akka.util.ByteString
@@ -19,8 +18,11 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpecLike, Inspectors, Matchers, BeforeAndAfterAll}
 import org.zeromq.ZMQ
 
+import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
+
 
 class ZMQSourceTest extends TestKit(ActorSystem("test"))
   with FlatSpecLike
@@ -33,42 +35,44 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
 
   implicit val mat = ActorMaterializer()
 
-  val genBytes = arbitrary[Byte].map(Array.apply(_))
+  val genBytes: Gen[Array[Byte]] = arbitrary[Byte].map(Array.apply(_))
 
   def fixture = new {
     val socket = new ZMQSocket {
-      val getReceiveTimeOut = 500
-      val getType = ZMQ.PULL
-
+      val getReceiveTimeOut: Int = 500
+      val getType: Int = ZMQ.PULL
       private val queue = new LinkedTransferQueue[Array[Byte]]()
-      def hasWaitingConsumer = queue.hasWaitingConsumer
-      def recv = {
+      def hasWaitingConsumer: Boolean = queue.hasWaitingConsumer
+      def recvF(implicit ec: ExecutionContext) = Future{
         if (closed) throw new IllegalStateException("Socket is closed")
-        else Option(queue.poll(getReceiveTimeOut, MILLISECONDS)).filterNot(_ == DataUnavailable).orNull
-      }
-      def sendWithAwait(elems: Array[Byte]*) =
-        elems foreach { elem =>
-          if (!queue.tryTransfer(elem, remainingOrDefault.toMillis, MILLISECONDS))
-            throw new IllegalStateException("Data was not received from the socket")
+        @tailrec def f: Array[Byte] = {
+          val data = queue.poll()
+          if(!(data sameElements  DataUnavailable)) data else f
         }
-      def send(elems: Array[Byte]*) = elems foreach queue.put
-      def remainingElementsCount = queue.size()
+        f
+      }
+
+      def send(elems: Array[Byte]*): Unit = elems foreach queue.put
+      def remainingElementsCount: Int = queue.size()
 
       private val closedFlag = new AtomicBoolean(false)
-      def close() = closedFlag.set(true)
-      def closed = closedFlag.get()
+      def close(): Unit = closedFlag.set(true)
+      def closed: Boolean = closedFlag.get()
 
-      private val connectedTo = Collections.synchronizedSet(new util.HashSet[String]())
-      def connect(address: String) = connectedTo.add(address)
-      def disconnect(address: String) = connectedTo.remove(address)
-      def connected = !connectedTo.isEmpty
+      private val connectedTo = java.util.Collections.synchronizedSet(new java.util.HashSet[String]())
+      def connect(address: String): Unit = {
+        connectedTo.add(address)
+        ()
+      }
+      def disconnect(address: String): Boolean = connectedTo.remove(address)
+      def connected: Boolean = !connectedTo.isEmpty
     }
 
-    val source = ZMQSource.create(() => socket, addresses = List("foo", "bar"))
+    val source: Source[ByteString, NotUsed] = ZMQSource.create(() => socket, addresses = List("foo", "bar"))
   }
 
-  def elements = Stream.continually(genBytes.sample.get)
-  val DataUnavailable = "DataUnavailable".getBytes
+  def elements: Stream[Array[Byte]] = Stream.continually(genBytes.sample.get)
+  val DataUnavailable: Array[Byte] = "DataUnavailable".getBytes
 
   "ZMQSource" should "connect to the provided addresses at start" in {
     val socket = mock[ZMQSocket]
@@ -115,7 +119,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     f.socket.send(elems: _*)
     f.source
       .runWith(TestSink.probe[ByteString])
-      .request(elems.size)
+      .request(elems.size.toLong)
       .expectNextN(elems.map(ByteString.apply))
   }
 
@@ -126,7 +130,7 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     f.socket.send(head ++: DataUnavailable +: tail: _*)
     f.source
       .runWith(TestSink.probe[ByteString])
-      .request(elems.size)
+      .request(elems.size.toLong)
       .expectNextN(elems.map(ByteString.apply))
       .expectNoMsg(100.millis)
   }
@@ -153,21 +157,11 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     awaitAssert { f.socket shouldBe 'closed }
   }
 
-  it should "disconnect the socket after receiving graceful stop command and become waiting for demand" in {
-    val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
-    probe.expectSubscription()
-    probe.expectNoMsg(100.millis)
-    awaitAssert { f.socket should not be 'connected }
-    awaitAssert { f.socket should not be 'closed }
-  }
-
   it should "disconnect the socket after receiving graceful stop command, try to deliver the requsted number of elements, complete the stream and close the socket" in {
     val f = fixture
     f.socket.send(DataUnavailable)
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
+    val (control, probe) = f.source.viaMat(KillSwitches.single)(Keep.right).toMat(TestSink.probe[ByteString])(Keep.both).run()
+    control.shutdown()
     probe.expectSubscriptionAndComplete()
     awaitAssert { f.socket should not be 'connected }
     awaitAssert { f.socket shouldBe 'closed }
@@ -197,22 +191,10 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     f.socket.remainingElementsCount shouldBe 8
   }
 
-  it should "disconnect the socket after receiving graceful stop command, try to deliver the requsted number of elements, complete the stream and close the socket" in {
-    val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    probe.request(1)
-    f.socket.send(DataUnavailable)
-    control.gracefulStop()
-    f.socket.send(DataUnavailable)
-    probe.expectComplete()
-    awaitAssert { f.socket should not be 'connected }
-    awaitAssert { f.socket shouldBe 'closed }
-  }
-
   it should "disconnect and close the socket if cancelled" in {
     val f = fixture
     f.socket.send(DataUnavailable)
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    val probe = f.source.runWith(TestSink.probe[ByteString])
     probe
       .request(1)
       .cancel()
@@ -221,12 +203,23 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     awaitAssert { f.socket shouldBe 'closed }
   }
 
+  it should "ignore other graceful stop commands" in {
+    val f = fixture
+    f.socket.send(DataUnavailable)
+    val (control, probe) = f.source.viaMat(KillSwitches.single)(Keep.right).toMat(TestSink.probe[ByteString])(Keep.both).run()
+    control.shutdown()
+    control.shutdown()
+    probe
+      .expectSubscriptionAndComplete()
+      .expectNoMsg(100.millis)
+    awaitAssert { f.socket shouldBe 'closed }
+  }
+
   "ZMQSource when stopping" should "not deliver more elements than was demanded" in {
     val f = fixture
     val elems = elements.take(10).toList
     f.socket.send(elems: _*)
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
+    val probe = f.source.runWith(TestSink.probe[ByteString])
     probe
       .request(5)
       .expectNextN(elems.take(5).map(ByteString.apply))
@@ -236,63 +229,20 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
 
   it should "close the socket if cancelled" in {
     val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
+    val probe = f.source.runWith(TestSink.probe[ByteString])
     probe
       .cancel()
       .expectNoMsg(100.millis)
     awaitAssert { f.socket shouldBe 'closed }
   }
 
-  it should "ignore other graceful stop commands" in {
-    val f = fixture
-    f.socket.send(DataUnavailable)
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
-    control.gracefulStop()
-    probe
-      .expectSubscriptionAndComplete()
-      .expectNoMsg(100.millis)
-    awaitAssert { f.socket shouldBe 'closed }
-  }
-
-  "ZMQSource when delivering & stopping" should "deliver requested elements and wait for more demand" in {
-    val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    probe.request(1)
-    awaitCond(f.socket.hasWaitingConsumer)
-    control.gracefulStop()
-    f.socket.sendWithAwait(DataUnavailable) // to ensure transition to delivering & stopping state
-    val elems = elements.take(1).toList
-    f.socket.sendWithAwait(elems: _*)
-    probe
-      .expectNextN(elems.map(ByteString.apply))
-      .expectNoMsg(100.millis)
-    awaitAssert { f.socket should not be 'closed }
-  }
 
   it should "stop immediately if cancelled" in {
     val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    val probe = f.source.runWith(TestSink.probe[ByteString])
     probe.request(1)
-    awaitCond(f.socket.hasWaitingConsumer)
-    control.gracefulStop()
     probe.cancel()
-    f.socket.sendWithAwait(DataUnavailable) // transition to delivering & stopping state
     probe.expectNoMsg(100.millis)
-    awaitAssert { f.socket shouldBe 'closed }
-  }
-
-  it should "ignore other graceful stop commands" in {
-    val f = fixture
-    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    probe.request(1)
-    awaitCond(f.socket.hasWaitingConsumer)
-    control.gracefulStop()
-    control.gracefulStop()
-    f.socket.sendWithAwait(DataUnavailable) // to ensure transition to delivering & stopping state
-    f.socket.sendWithAwait(DataUnavailable) // to initiate stop
-    probe.expectComplete()
     awaitAssert { f.socket shouldBe 'closed }
   }
 }
