@@ -15,7 +15,7 @@ import org.mockito.Mockito.{verify, when}
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Gen
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FlatSpecLike, Inspectors, Matchers}
+import org.scalatest.{FlatSpecLike, Inspectors, Matchers, BeforeAndAfterAll}
 import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
@@ -23,8 +23,17 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 
-class ZMQSourceTest extends TestKit(ActorSystem("test")) with FlatSpecLike with MockitoSugar with Matchers with Inspectors {
-  implicit val mat: ActorMaterializer = ActorMaterializer()
+
+class ZMQSourceTest extends TestKit(ActorSystem("test"))
+  with FlatSpecLike
+  with MockitoSugar
+  with Matchers
+  with Inspectors
+  with BeforeAndAfterAll {
+
+  override def afterAll(): Unit = TestKit.shutdownActorSystem(system)
+
+  implicit val mat = ActorMaterializer()
 
   val genBytes: Gen[Array[Byte]] = arbitrary[Byte].map(Array.apply(_))
 
