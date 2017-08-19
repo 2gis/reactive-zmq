@@ -1,3 +1,4 @@
+sudo: false
 language: scala
 jdk: oraclejdk8
 scala:
@@ -10,13 +11,13 @@ cache:
 before_script:
   - mkdir -v $HOME/.bintray
   - cp -v ./.bintray $HOME/.bintray/.credentials
+script: sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport coveralls
 jobs:
   include:
-    - stage: test
-      script: sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport coveralls
     - stage: publish
-      script: "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt publish"
-script:
+      scala: 2.12.3
+      script: skip
+      after_success: "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt +publish"
 before_cache:
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.ivy2 -name "ivydata-*.properties" -print -delete
