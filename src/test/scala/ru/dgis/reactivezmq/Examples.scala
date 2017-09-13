@@ -6,6 +6,7 @@ import akka.stream.scaladsl._
 import akka.util.ByteString
 import org.zeromq.ZMQ
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 /**
@@ -33,9 +34,8 @@ object Examples extends App {
     .toMat(Sink.ignore)(Keep.both)
     .run()
 
-  implicit val ec = as.dispatcher
-  control.gracefulStop()
-  finish.onComplete { _ =>
+  implicit val ec = ExecutionContext.Implicits.global
+  Future.sequence(Seq(control.gracefulStop(), finish)).onComplete { _ =>
     as.terminate()
     context.close()
   }
