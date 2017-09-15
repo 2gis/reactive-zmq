@@ -67,10 +67,10 @@ val (control, finish) = source
 The `Control` object exposes a `gracefulStop` method that closes an underlying ZMQ socket and completes the `Source`:
 
 ```scala
-control.gracefulStop()
+val stopFuture: Future[Unit] = control.gracefulStop()
 
 implicit val ec = as.dispatcher
-finish.onComplete { _ =>
+Future.sequence(Seq(stopFuture, finish)).onComplete { _ =>
   as.terminate()
   context.close()
 }

@@ -167,10 +167,11 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     val f = fixture
     f.socket.send(DataUnavailable)
     val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
-    control.gracefulStop()
+    val res = control.gracefulStop()
     probe.expectSubscriptionAndComplete()
     awaitAssert { f.socket should not be 'connected }
     awaitAssert { f.socket shouldBe 'closed }
+    awaitAssert { res.value.get.isSuccess shouldBe true }
   }
 
   "ZMQSource when delivering" should "accumulate demand and delivery all the elements" in {
@@ -202,11 +203,12 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
     probe.request(1)
     f.socket.send(DataUnavailable)
-    control.gracefulStop()
+    val res = control.gracefulStop()
     f.socket.send(DataUnavailable)
     probe.expectComplete()
     awaitAssert { f.socket should not be 'connected }
     awaitAssert { f.socket shouldBe 'closed }
+    awaitAssert { res.value.get.isSuccess shouldBe true }
   }
 
   it should "disconnect and close the socket if cancelled" in {
@@ -256,6 +258,28 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     awaitAssert { f.socket shouldBe 'closed }
   }
 
+  it should "resolve returned futures after graceful stop" in {
+    val f = fixture
+    f.socket.send(DataUnavailable)
+    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    val res1 = control.gracefulStop()
+    val res2 = control.gracefulStop()
+    probe
+      .expectSubscriptionAndComplete()
+      .expectNoMsg(100.millis)
+    awaitAssert { res1.value.get.isSuccess shouldBe true }
+    awaitAssert { res2.value.get.isSuccess shouldBe true }
+  }
+
+  it should "return failed result when stream is cancelled while graceful stop process" in {
+    val f = fixture
+    f.socket.send(DataUnavailable)
+    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    val res = control.gracefulStop()
+    probe.cancel()
+    awaitAssert { a [GracefulStopInterrupted] should be thrownBy res.value.get.get }
+  }
+
   "ZMQSource when delivering & stopping" should "deliver requested elements and wait for more demand" in {
     val f = fixture
     val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
@@ -294,5 +318,29 @@ class ZMQSourceTest extends TestKit(ActorSystem("test"))
     f.socket.sendWithAwait(DataUnavailable) // to initiate stop
     probe.expectComplete()
     awaitAssert { f.socket shouldBe 'closed }
+  }
+
+  it should "resolve returned futures after graceful stop" in {
+    val f = fixture
+    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    probe.request(1)
+    awaitCond(f.socket.hasWaitingConsumer)
+    val res1 = control.gracefulStop()
+    val res2 = control.gracefulStop()
+    f.socket.sendWithAwait(DataUnavailable) // to ensure transition to delivering & stopping state
+    probe.expectComplete()
+    awaitAssert { res1.value.get.isSuccess shouldBe true }
+    awaitAssert { res2.value.get.isSuccess shouldBe true }
+  }
+
+  it should "return failed result when stream is cancelled while graceful stop process" in {
+    val f = fixture
+    val (control, probe) = f.source.toMat(TestSink.probe[ByteString])(Keep.both).run()
+    probe.request(1)
+    awaitCond(f.socket.hasWaitingConsumer)
+    val res = control.gracefulStop()
+    f.socket.sendWithAwait(DataUnavailable) // to ensure transition to delivering & stopping state
+    probe.cancel()
+    awaitAssert { a [GracefulStopInterrupted] should be thrownBy res.value.get.get }
   }
 }

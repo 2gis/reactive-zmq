@@ -11,10 +11,15 @@ import akka.util.ByteString
 import org.zeromq.ZMQ
 
 import scala.annotation.tailrec
-import scala.util.control.NonFatal
+import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
+
+class GracefulStopInterrupted extends RuntimeException("GracefulStopInterrupted. ZMQ messages may not be processed.")
 
 object ZMQSource {
+
   /**
     * The means to control the Source after materialization.
     */
@@ -22,14 +27,18 @@ object ZMQSource {
     /**
       * Disconnect the underlying ZMQ socket, deliver the remaining data and finally close the socket.
       */
-    def gracefulStop(): Unit
+    def gracefulStop(): Future[Unit]
   }
 
   private[reactivezmq] def create(socketFactory: () => ZMQSocket, addresses: List[String]): Source[ByteString, Control] =
     Source.actorPublisher[ByteString](ZMQActorPublisher.props(socketFactory, addresses))
       .mapMaterializedValue { ref =>
         new Control {
-          def gracefulStop() = ref ! ZMQActorPublisher.GracefulStop
+          def gracefulStop(): Future[Unit] = {
+            val stopPromise = Promise[Unit]()
+            ref ! ZMQActorPublisher.GracefulStop(stopPromise)
+            stopPromise.future
+          }
         }
       }
       .withAttributes(ActorAttributes.dispatcher("zmq-source-dispatcher"))
@@ -98,7 +107,7 @@ private object ZMQSocket {
 }
 
 private object ZMQActorPublisher {
-  case object GracefulStop
+  case class GracefulStop(promise: Promise[Unit])
   case object DeliverMore
 
   def props(socketFactory: () => ZMQSocket, addresses: List[String]): Props =
@@ -118,6 +127,8 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
       onErrorThenStop(e)
   }
 
+  private val stopPromises = mutable.Set.empty[Promise[Unit]]
+
   override def preStart() =
     try addresses foreach socket.connect
     catch {
@@ -126,7 +137,14 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
         onErrorThenStop(e)
     }
 
-  override def postStop() = socket.close()
+  override def postStop() = {
+    socket.close()
+    if (isCanceled) {
+      stopPromises.foreach(_.failure(new GracefulStopInterrupted))
+    } else {
+      stopPromises.foreach(_.success(()))
+    }
+  }
 
   def receive = idle
 
@@ -140,7 +158,8 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
     case Cancel =>
       disconnect()
       context.stop(self)
-    case GracefulStop =>
+    case GracefulStop(stopPromise) =>
+      stopPromises += stopPromise
       disconnect()
       log.debug("idle ~> stopping")
       context.become(stopping)
@@ -157,7 +176,8 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
     case Cancel =>
       disconnect()
       context.stop(self)
-    case GracefulStop =>
+    case GracefulStop(stopPromise) =>
+      stopPromises += stopPromise
       disconnect()
       log.debug("delivering ~> delivering & stopping")
       context.become(deliveringAndStopping)
@@ -166,7 +186,7 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
   def stopping: Receive = LoggingReceive {
     case Request(n) => if (deliver(n)) onCompleteThenStop()
     case Cancel => context.stop(self)
-    case GracefulStop =>
+    case GracefulStop(stopPromise) => stopPromises += stopPromise
   }
 
   def deliveringAndStopping: Receive = LoggingReceive {
@@ -178,7 +198,7 @@ private class ZMQActorPublisher(socket: ZMQSocket, addresses: List[String]) exte
         context.become(stopping)
       }
     case Cancel => context.stop(self)
-    case GracefulStop =>
+    case GracefulStop(stopPromise) => stopPromises += stopPromise
   }
 
   /**
