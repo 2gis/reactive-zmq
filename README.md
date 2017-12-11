@@ -16,7 +16,7 @@ Currently it only supports receiving data via unidirectional ZMQ sockets of type
 
 # ZMQ compatibility
 
-See [jeromq](https://github.com/zeromq/jeromq/tree/v0.4.2) documentation.
+See [jeromq](https://github.com/zeromq/jeromq/tree/v0.4.3) documentation.
 
 # 30 seconds start
 
@@ -25,7 +25,7 @@ Add the following settings to your `build.sbt`:
 ```scala
 resolvers += Resolver.jcenterRepo
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.3.0"
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.4.0"
 ```
 
 Create zmq context and `Source`:
@@ -83,5 +83,5 @@ Add the following settings to your `build.sbt` to use a SNAPSHOT version:
 ```scala
 resolvers += "OSS JFrog Snapshots" at "https://oss.jfrog.org/artifactory/libs-snapshot/"
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.4.0-SNAPSHOT"
+libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.5.0-SNAPSHOT"
 ```
