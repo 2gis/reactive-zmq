@@ -10,12 +10,10 @@ crossScalaVersions := Seq("2.11.11", "2.12.3")
 
 scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint")
 
-resolvers += Resolver.sonatypeRepo("snapshots") // FIXME: for jeromq snapshot
-
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor"          % akkaVersion,
   "com.typesafe.akka" %% "akka-stream"         % akkaVersion,
-  "org.zeromq"        %  "jeromq"              % "0.4.3-SNAPSHOT", // FIXME: https://github.com/zeromq/jeromq/issues/466#issuecomment-328910616
+  "org.zeromq"        %  "jeromq"              % "0.4.3",
   "org.mockito"       %  "mockito-core"        % "2.8.47"     % "test",
   "org.scalatest"     %% "scalatest"           % "3.0.1"      % "test",
   "com.typesafe.akka" %% "akka-testkit"        % akkaVersion  % "test",
