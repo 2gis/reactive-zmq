@@ -6,7 +6,7 @@ Currently it only supports receiving data via unidirectional ZMQ sockets of type
   - ZMQ.SUB
 
 [![Build Status](https://travis-ci.org/2gis/reactive-zmq.svg?branch=master)](https://travis-ci.org/2gis/reactive-zmq)
-[![Download](https://api.bintray.com/packages/2gis/maven/reactive-zmq/images/download.svg)](https://bintray.com/2gis/maven/reactive-zmq/_latestVersion)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.2gis/reactive-zmq_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.2gis/reactive-zmq_2.12)
 [![Coverage Status](https://coveralls.io/repos/github/2gis/reactive-zmq/badge.svg?branch=master)](https://coveralls.io/github/2gis/reactive-zmq?branch=master)
 
 # Supported Scala versions
@@ -23,9 +23,7 @@ See [jeromq](https://github.com/zeromq/jeromq/tree/v0.4.3) documentation.
 Add the following settings to your `build.sbt`:
 
 ```scala
-resolvers += Resolver.jcenterRepo
-
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.4.0"
+libraryDependencies += "io.github.2gis" %% "reactive-zmq" % "0.5.0"
 ```
 
 Create zmq context and `Source`:
@@ -81,7 +79,7 @@ Future.sequence(Seq(stopFuture, finish)).onComplete { _ =>
 Add the following settings to your `build.sbt` to use a SNAPSHOT version:
 
 ```scala
-resolvers += "OSS JFrog Snapshots" at "https://oss.jfrog.org/artifactory/libs-snapshot/"
+resolvers += "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "ru.dgis" %% "reactive-zmq" % "0.5.0-SNAPSHOT"
+libraryDependencies += "io.github.2gis" %% "reactive-zmq" % "0.6.0-SNAPSHOT"
 ```
