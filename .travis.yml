@@ -1,6 +1,6 @@
 sudo: false
 language: scala
-jdk: oraclejdk8
+jdk: oraclejdk11
 scala:
   - 2.11.11
   - 2.12.3
