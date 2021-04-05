@@ -8,16 +8,7 @@ cache:
   directories:
     - $HOME/.ivy2/cache
     - $HOME/.sbt
-before_script:
-  - mkdir -v $HOME/.bintray
-  - cp -v ./.bintray $HOME/.bintray/.credentials
 script: sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport coveralls
-jobs:
-  include:
-    - stage: publish
-      scala: 2.12.3
-      script: skip
-      after_success: "[[ $TRAVIS_PULL_REQUEST == 'false' && $TRAVIS_BRANCH == 'master' && $TRAVIS_TAG == '' ]] && sbt +publish"
 before_cache:
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.ivy2 -name "ivydata-*.properties" -print -delete

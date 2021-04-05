@@ -1,6 +1,6 @@
-name := "reactive-zmq"
+organization := "io.github.2gis"
 
-organization := "ru.dgis"
+name := "reactive-zmq"
 
 val akkaVersion = "2.5.4"
 
@@ -21,24 +21,3 @@ libraryDependencies ++= Seq(
   "org.scalacheck"    %% "scalacheck"          % "1.13.5"     % "test"
 )
 
-releaseVersionBump := sbtrelease.Version.Bump.Minor
-
-releaseCrossBuild := true
-
-bintrayReleaseOnPublish in ThisBuild := false
-
-bintrayOrganization := Some("2gis")
-
-licenses += "MPL-2.0" -> url("https://www.mozilla.org/en-US/MPL/2.0/")
-
-publishTo := {
-  if (isSnapshot.value)
-    Some("OSS JFrog Snapshots" at "https://oss.jfrog.org/artifactory/oss-snapshot-local")
-  else publishTo.value
-}
-
-credentials += Credentials(
-  "Artifactory Realm",
-  "oss.jfrog.org",
-  Option(System.getenv("OSS_JFROG_USER")).getOrElse(""),
-  Option(System.getenv("OSS_JFROG_PASSWORD")).getOrElse(""))
