@@ -40,3 +40,6 @@ tmp/
 # vim files
 *.swp
 
+# bsp files
+.bsp/
+
